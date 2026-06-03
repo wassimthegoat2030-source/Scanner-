@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Cyan Matrix Scanner</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+
+        body { 
+            background-color: #05070a; 
+            font-family: 'Courier New', monospace; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .hud-panel {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+            background: rgba(10, 15, 24, 0.98);
+            border: 2px solid #00e5ff;
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+        }
+
+        .hud-panel.offline {
+            border-color: #ff5555;
+            box-shadow: 0 0 20px rgba(255, 85, 85, 0.2);
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            color: #00e5ff;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.3);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+
+        .camera-viewport {
+            position: relative;
+            width: 100%;
+            height: 230px;
+            background: #000;
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            border-radius: 6px;
+            overflow: hidden;
+            z-index: 2;
+            margin-bottom: 10px;
+        }
+
+        #video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scale(1);
+            transform-origin: center center;
+            transition: transform 0.2s ease;
+        }
+
+        /* GROUND UP PULSE WAVE */
+        .ground-pulse-wave {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            bottom: -100px; 
+            height: 100px;
+            background: linear-gradient(to top, #00e5ff, rgba(0, 229, 255, 0.4) 30%, transparent 100%);
+            z-index: 3;
+            pointer-events: none;
+            opacity: 0;
+            mix-blend-mode: screen;
+            animation: upwardPulseWave 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+        }
+
+        @keyframes upwardPulseWave {
+            0% { bottom: -100px; opacity: 0; height: 40px; }
+            10% { opacity: 1; }
+            90% { opacity: 0.8; }
+            100% { bottom: 100%; opacity: 0; height: 180px; }
+        }
+
+        /* 3D TARGET CUBE WIREFRAME */
+        .reticle-cube {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 80px;
+            height: 80px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 4;
+            overflow: hidden;
+            border: 1px solid rgba(0, 229, 255, 0.8);
+            display: none;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+        }
+
+        .cube-face {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 2px solid #00e5ff;
+        }
+
+        .face-front {
+            transform: scale(0.9);
+            border-style: dashed;
+            animation: pulseBox 1.5s ease-in-out infinite alternate;
+        }
+
+        .face-back {
+            transform: scale(1.1);
+            border-color: #00ffaa;
+            opacity: 0.4;
+        }
+
+        .matrix-grid-mesh {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-size: 8px 8px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 229, 255, 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 229, 255, 0.2) 1px, transparent 1px);
+            z-index: 2;
+        }
+
+        #reticle-zoom-lens {
+            position: absolute;
+            object-fit: cover;
+            transform: scale(1.7);
+            transform-origin: center center;
+            pointer-events: none;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes pulseBox {
+            0% { transform: scale(0.85); opacity: 0.6; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+
+        .hud-center {
+            color: #00e5ff;
+            font-size: 11px;
+            line-height: 1.5;
+            padding: 8px;
+            border-left: 2px solid #00e5ff;
+            background: rgba(0, 229, 255, 0.03);
+            height: 58px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .controls-matrix { display: flex; flex-direction: column; gap: 6px; }
+        .btn-row { display: flex; gap: 6px; width: 100%; }
+
+        .hud-btn {
+            flex: 1;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid #00e5ff;
+            color: #00e5ff;
+            padding: 10px 2px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-align: center;
+            outline: none;
+        }
+
+        .hud-btn:active {
+            background: rgba(0, 229, 255, 0.2);
+        }
+
+        .hud-btn.alt-color {
+            border-color: #00ffaa; color: #00ffaa;
+            background: rgba(0, 255, 170, 0.05);
+        }
+        .hud-btn.alt-color:active { background: rgba(0, 255, 170, 0.2); }
+
+        .hud-btn.warn-color {
+            border-color: #ff5555; color: #ff5555;
+            background: rgba(255, 85, 85, 0.08);
+            padding: 12px 2px;
+        }
+        .hud-btn.warn-color:active { background: rgba(255, 85, 85, 0.25); }
+
+        .terminal-console {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #1f2937;
+            border-radius: 4px;
+            padding: 8px 10px;
+        }
+
+        .prompt-symbol { color: #00e5ff; font-weight: bold; margin-right: 6px; font-size: 12px; }
+        .terminal-input { flex-grow: 1; background: transparent; border: none; outline: none; color: #00e5ff; font-family: inherit; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="hud-panel" id="hud">
+    <div class="hud-header">
+        <span>SYS: ONLINE</span>
+        <span id="recording-tag" style="color: #00e5ff;">• 3D HYBRID MATRIX</span>
+    </div>
+    
+    <div class="camera-viewport" id="viewport">
+        <video id="video-feed" autoplay playsinline muted></video>
+        <div class="ground-pulse-wave" id="wave-element"></div>
+        
+        <div class="reticle-cube" id="reticle-elem">
+            <video id="reticle-zoom-lens" autoplay playsinline muted></video>
+            <div class="cube-face face-front"></div>
+            <div class="cube-face face-back"></div>
+            <div class="matrix-grid-mesh"></div>
+        </div>
+    </div>
+    
+    <div class="hud-center" id="display">
+        <div>&gt; CORES ACTIVE. OPTICAL STREAM SECURED.</div>
+        <div style="color: #00e5ff;">&gt; LOCAL COMPILE SUCCESSFUL. READY FOR RECORDING.</div>
+    </div>
+
+    <div class="controls-matrix">
+        <div class="btn-row">
+            <button class="hud-btn main-grid" onclick="tapBtn('F1', '#00e5ff')">F1</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('F2', '#00e5ff')">F2</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('F3', '#00e5ff')">F3</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('F4', '#00e5ff')">F4</button>
+        </div>
+        
+        <div class="btn-row">
+            <button class="hud-btn main-grid" id="zoom-btn" onclick="triggerZoom()">ZOOM 1X</button>
+            <button class="hud-btn main-grid" id="circle-zoom-btn" onclick="toggleCircleZoom()">ZOOM BOX: OFF</button>
+            <button class="hud-btn alt-color main-grid" onclick="tapBtn('AUDIO LINK', '#00ffaa')">AUDIO</button>
+            <button class="hud-btn alt-color main-grid" onclick="tapBtn('SCAN RAY', '#00ffaa')">SCAN</button>
+        </div>
+
+        <div class="btn-row">
+            <button class="hud-btn main-grid" id="rec-btn" style="border-color: #ff5555; color: #ff5555;" onclick="toggleRecording()">REC</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('DATA CON', '#00e5ff')">LINK</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('SYS SYNC', '#00e5ff')">SYNC</button>
+            <button class="hud-btn" style="border-color:#ffffff; color:#ffffff;" onclick="location.reload()">RESET</button>
+        </div>
+        
+        <div class="btn-row">
+            <button class="hud-btn warn-color" id="power-toggle" onclick="togglePower(event)">STOP SYSTEM</button>
+        </div>
+    </div>
+
+    <div class="terminal-console">
+        <span class="prompt-symbol">&gt;</span>
+        <input type="text" class="terminal-input" placeholder="Type command..." autocomplete="off">
+    </div>
+</div>
+
+<script>
+    const display = document.getElementById('display');
+    const zoomBtn = document.getElementById('zoom-btn');
+    const circleZoomBtn = document.getElementById('circle-zoom-btn');
+    const videoFeed = document.getElementById('video-feed');
+    const cameraViewport = document.getElementById('viewport');
+    const reticleElem = document.getElementById('reticle-elem');
+    const reticleZoomLens = document.getElementById('reticle-zoom-lens');
+    const waveElement = document.getElementById('wave-element');
+    const hud = document.getElementById('hud');
+    const recBtn = document.getElementById('rec-btn');
+    const recordingTag = document.getElementById('recording-tag');
+    const mainGridButtons = document.querySelectorAll('.main-grid');
+
+    let isSystemOnline = true;
+    let zoomLevels = [1, 2, 4, 8];
+    let currentZoomIndex = 0;
+    let isCircleZoomActive = false;
+    let streamInstance = null;
+
+    let mediaRecorderInstance = null;
+    let recordedChunksList = [];
+    let isRecordingRunning = false;
+
+    function handlePointerMove(clientX, clientY) {
+        if (!isSystemOnline || !isCircleZoomActive) return;
+        const rect = cameraViewport.getBoundingClientRect();
+        
+        let x = clientX - rect.left;
+        let y = clientY - rect.top;
+        
+        x = Math.max(0, Math.min(x, rect.width));
+        y = Math.max(0, Math.min(y, rect.height));
+
+        reticleElem.style.left = `${x}px`;
+        reticleElem.style.top = `${y}px`;
+
+        reticleZoomLens.style.width = `${rect.width}px`;
+        reticleZoomLens.style.height = `${rect.height}px`;
+        
+        let offsetX = -x + 40; 
+        let offsetY = -y + 40; 
+        
+        reticleZoomLens.style.left = `${offsetX}px`;
+        reticleZoomLens.style.top = `${offsetY}px`;
+
+        if (zoomLevels[currentZoomIndex] !== 1) {
+            videoFeed.style.transformOrigin = `${(x / rect.width) * 100}% ${(y / rect.height) * 100}%`;
+        }
+    }
+
+    cameraViewport.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+    cameraViewport.addEventListener('touchmove', (e) => {
+        if(e.touches.length > 0) {
+            handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+        }
+    }, { passive: true });
+
+    function toggleCircleZoom() {
+        if (!isSystemOnline) return;
+        isCircleZoomActive = !isCircleZoomActive;
+        
+        if (isCircleZoomActive) {
+            reticleElem.style.display = "block";
+            circleZoomBtn.innerText = "ZOOM BOX: ON";
+            circleZoomBtn.style.background = "#00e5ff";
+            circleZoomBtn.style.color = "#05070a";
+            display.innerHTML = `
+                <div>&gt; TARGET CUBE TRACKING: <span style="color: #00e5ff;">ENABLED</span></div>
+                <div style="color: #8b949e;">&gt; MOVE CUBE WIREFRAME AROUND SCREEN.</div>
+            `;
+        } else {
+            reticleElem.style.display = "none";
+            circleZoomBtn.innerText = "ZOOM BOX: OFF";
+            circleZoomBtn.style.background = "rgba(0, 229, 255, 0.05)";
+            circleZoomBtn.style.color = "#00e5ff";
+            display.innerHTML = `
+                <div>&gt; TARGET CUBE TRACKING: <span style="color: #8b949e;">DISABLED</span></div>
+            `;
+        }
+    }
+
+    async function startCamera() {
+        try {
+            streamInstance = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "environment" }, 
+                audio: true 
+            });
+            videoFeed.srcObject = streamInstance;
+            reticleZoomLens.srcObject = streamInstance;
+        } catch (err) {
+            display.innerHTML = `<div style="color: #ff5555;">&gt; OPTIC LINK ERROR: ALLOW PERMISSIONS IN BROWSER</div>`;
+        }
+    }
+
+    function stopCamera() {
+        if (streamInstance) {
+            streamInstance.getTracks().forEach(track => track.stop());
+        }
+        videoFeed.srcObject = null;
+        reticleZoomLens.srcObject = null;
+    }
+
+    function toggleRecording() {
+        if (!isSystemOnline || !streamInstance) return;
+
+        if (!isRecordingRunning) {
+            recordedChunksList = [];
+            
+            let options = { mimeType: 'video/webm;codecs=vp8,opus' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/mp4' }; // Fallback support format
+            }
+            
+            try {
+                mediaRecorderInstance = new MediaRecorder(streamInstance, options);
+            } catch(e) {
+                mediaRecorderInstance = new MediaRecorder(streamInstance); 
+            }
+
+            mediaRecorderInstance.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedChunksList.push(event.data);
+                }
+            };
+
+            mediaRecorderInstance.onstop = () => {
+                const blobPackage = new Blob(recordedChunksList, { type: mediaRecorderInstance.mimeType || 'video/webm' });
+                const urlPath = URL.createObjectURL(blobPackage);
+                
+                const downloadLinkAnchor = document.createElement('a');
+                downloadLinkAnchor.href = urlPath;
+                downloadLinkAnchor.download = `SCAN_CAPTURE_${Date.now()}.webm`;
+                document.body.appendChild(downloadLinkAnchor);
+                downloadLinkAnchor.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(downloadLinkAnchor);
+                    window.URL.revokeObjectURL(urlPath);
+                }, 100);
+            };
+
+            mediaRecorderInstance.start(10); 
+            isRecordingRunning = true;
+            
+            recBtn.style.background = "#ff5555";
+            recBtn.style.color = "#05070a";
+            recBtn.innerText = "STOP";
+            recordingTag.innerHTML = "● REC LIVE";
+            recordingTag.style.color = "#ff5555";
+            display.innerHTML = `<div>&gt; RECORDING STREAM: <span style="color:#ff5555;">ACTIVE_</span></div>`;
+        } else {
+            mediaRecorderInstance.stop();
+            isRecordingRunning = false;
+            
+            recBtn.style.background = "rgba(0, 229, 255, 0.05)";
+            recBtn.style.color = "#ff5555";
+            recBtn.innerText = "REC";
+            recordingTag.innerHTML = "• 3D HYBRID MATRIX";
+            recordingTag.style.color = "#00e5ff";
+            display.innerHTML = `<div>&gt; RECORDING COMPLETE. <span style="color:#00ffaa;">TRIGGERING DOWNLOAD...</span></div>`;
+        }
+    }
+
+    function triggerZoom() {
+        if (!isSystemOnline) return;
+        currentZoomIndex = (currentZoomIndex + 1) % zoomLevels.length;
+        let targetZoom = zoomLevels[currentZoomIndex];
+        videoFeed.style.transform = `scale(${targetZoom})`;
+        zoomBtn.innerText = `ZOOM ${targetZoom}X`;
+    }
+
+    function togglePower(event) {
+        if (event && event.stopPropagation) event.stopPropagation();
+        isSystemOnline = !isSystemOnline;
+        const powerBtn = document.getElementById('power-toggle');
+        
+        if (isRecordingRunning) toggleRecording(); 
+        
+        if (!isSystemOnline) {
+            hud.classList.add('offline');
+            stopCamera();
+            reticleElem.style.display = "none";
+            waveElement.style.display = "none";
+            mainGridButtons.forEach(btn => btn.disabled = true);
+            powerBtn.innerText = "START SYSTEM";
+            display.innerHTML = `<div style="color: #ff5555;">&gt; SYSTEM OFFLINE. OPTIC LINK SEVERED.</div>`;
+        } else {
+            hud.classList.remove('offline');
+            startCamera();
+            if (isCircleZoomActive) reticleElem.style.display = "block";
+            waveElement.style.display = "block";
+            mainGridButtons.forEach(btn => btn.disabled = false);
+            powerBtn.innerText = "STOP SYSTEM";
+            display.innerHTML = `<div>&gt; CORES ACTIVE. OPTICAL STREAM SECURED.</div>`;
+        }
+    }
+
+    function tapBtn(name, colorHex) {
+        if (!isSystemOnline) return;
+        display.innerHTML = `<div>&gt; COMMAND: <span style="color: ${colorHex}">${name}</span></div><div style="color: #00e5ff;">&gt; PROTOCOL CONFIRMED.</div>`;
+    }
+
+    // Initialize layout setup track bounds
+    startCamera();
+</script>
+
+</body>
+</html>
