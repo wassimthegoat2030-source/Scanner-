@@ -162,6 +162,7 @@
             height: 58px;
             overflow: hidden;
             margin-bottom: 10px;
+            white-space: pre-line;
         }
 
         .controls-matrix { display: flex; flex-direction: column; gap: 6px; }
@@ -198,6 +199,14 @@
             padding: 12px 2px;
         }
         .hud-btn.warn-color:active { background: rgba(255, 85, 85, 0.25); }
+
+        .hud-btn.stealth-color {
+            border-color: #ffa500; color: #ffa500;
+            background: rgba(255, 165, 0, 0.08);
+            padding: 12px 2px;
+            margin-top: 2px;
+        }
+        .hud-btn.stealth-color:active { background: rgba(255, 165, 0, 0.25); }
 
         .terminal-console {
             margin-top: 10px;
@@ -263,6 +272,10 @@
         <div class="btn-row">
             <button class="hud-btn warn-color" id="power-toggle" onclick="togglePower(event)">STOP SYSTEM</button>
         </div>
+
+        <div class="btn-row">
+            <button class="hud-btn stealth-color" id="audio-only-toggle" onclick="toggleAudioOnlyMode(event)">AUDIO ONLY</button>
+        </div>
     </div>
 
     <div class="terminal-console">
@@ -284,8 +297,10 @@
     const recBtn = document.getElementById('rec-btn');
     const recordingTag = document.getElementById('recording-tag');
     const mainGridButtons = document.querySelectorAll('.main-grid');
+    const audioOnlyBtn = document.getElementById('audio-only-toggle');
 
     let isSystemOnline = true;
+    let isAudioOnlyMode = false;
     let zoomLevels = [1, 2, 4, 8];
     let currentZoomIndex = 0;
     let isCircleZoomActive = false;
@@ -296,7 +311,7 @@
     let isRecordingRunning = false;
 
     function handlePointerMove(clientX, clientY) {
-        if (!isSystemOnline || !isCircleZoomActive) return;
+        if (!isSystemOnline || !isCircleZoomActive || isAudioOnlyMode) return;
         const rect = cameraViewport.getBoundingClientRect();
         
         let x = clientX - rect.left;
@@ -330,7 +345,7 @@
     }, { passive: true });
 
     function toggleCircleZoom() {
-        if (!isSystemOnline) return;
+        if (!isSystemOnline || isAudioOnlyMode) return;
         isCircleZoomActive = !isCircleZoomActive;
         
         if (isCircleZoomActive) {
@@ -361,8 +376,23 @@
             });
             videoFeed.srcObject = streamInstance;
             reticleZoomLens.srcObject = streamInstance;
+            videoFeed.style.display = "block";
         } catch (err) {
             display.innerHTML = `<div style="color: #ff5555;">&gt; OPTIC LINK ERROR: ALLOW PERMISSIONS IN BROWSER</div>`;
+        }
+    }
+
+    async function startAudioOnly() {
+        try {
+            streamInstance = await navigator.mediaDevices.getUserMedia({ 
+                video: false, 
+                audio: true 
+            });
+            videoFeed.srcObject = null;
+            reticleZoomLens.srcObject = null;
+            videoFeed.style.display = "none";
+        } catch (err) {
+            display.innerHTML = `<div style="color: #ffa500;">&gt; MIC LINK ERROR: ALLOW MIC PERMISSIONS IN BROWSER</div>`;
         }
     }
 
@@ -372,6 +402,7 @@
         }
         videoFeed.srcObject = null;
         reticleZoomLens.srcObject = null;
+        videoFeed.style.display = "none";
     }
 
     function toggleRecording() {
@@ -381,8 +412,10 @@
             recordedChunksList = [];
             
             let options = { mimeType: 'video/webm;codecs=vp8,opus' };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options = { mimeType: 'video/mp4' }; // Fallback support format
+            if (isAudioOnlyMode) {
+                options = { mimeType: 'audio/webm;codecs=opus' };
+            } else if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/mp4' }; 
             }
             
             try {
@@ -398,12 +431,14 @@
             };
 
             mediaRecorderInstance.onstop = () => {
-                const blobPackage = new Blob(recordedChunksList, { type: mediaRecorderInstance.mimeType || 'video/webm' });
+                const extension = isAudioOnlyMode ? 'wav' : 'webm';
+                const defaultType = isAudioOnlyMode ? 'audio/wav' : 'video/webm';
+                const blobPackage = new Blob(recordedChunksList, { type: mediaRecorderInstance.mimeType || defaultType });
                 const urlPath = URL.createObjectURL(blobPackage);
                 
                 const downloadLinkAnchor = document.createElement('a');
                 downloadLinkAnchor.href = urlPath;
-                downloadLinkAnchor.download = `SCAN_CAPTURE_${Date.now()}.webm`;
+                downloadLinkAnchor.download = `CAPTURE_${Date.now()}.${extension}`;
                 document.body.appendChild(downloadLinkAnchor);
                 downloadLinkAnchor.click();
                 
@@ -429,14 +464,14 @@
             recBtn.style.background = "rgba(0, 229, 255, 0.05)";
             recBtn.style.color = "#ff5555";
             recBtn.innerText = "REC";
-            recordingTag.innerHTML = "• 3D HYBRID MATRIX";
-            recordingTag.style.color = "#00e5ff";
+            recordingTag.innerHTML = isAudioOnlyMode ? "• AUDIO STEALTH MOD" : "• 3D HYBRID MATRIX";
+            recordingTag.style.color = isAudioOnlyMode ? "#ffa500" : "#00e5ff";
             display.innerHTML = `<div>&gt; RECORDING COMPLETE. <span style="color:#00ffaa;">TRIGGERING DOWNLOAD...</span></div>`;
         }
     }
 
     function triggerZoom() {
-        if (!isSystemOnline) return;
+        if (!isSystemOnline || isAudioOnlyMode) return;
         currentZoomIndex = (currentZoomIndex + 1) % zoomLevels.length;
         let targetZoom = zoomLevels[currentZoomIndex];
         videoFeed.style.transform = `scale(${targetZoom})`;
@@ -445,10 +480,18 @@
 
     function togglePower(event) {
         if (event && event.stopPropagation) event.stopPropagation();
-        isSystemOnline = !isSystemOnline;
-        const powerBtn = document.getElementById('power-toggle');
         
         if (isRecordingRunning) toggleRecording(); 
+        
+        if (isAudioOnlyMode) {
+            isAudioOnlyMode = false;
+            audioOnlyBtn.innerText = "AUDIO ONLY";
+            audioOnlyBtn.style.background = "rgba(255, 165, 0, 0.08)";
+            audioOnlyBtn.style.color = "#ffa500";
+        }
+
+        isSystemOnline = !isSystemOnline;
+        const powerBtn = document.getElementById('power-toggle');
         
         if (!isSystemOnline) {
             hud.classList.add('offline');
@@ -465,18 +508,28 @@
             waveElement.style.display = "block";
             mainGridButtons.forEach(btn => btn.disabled = false);
             powerBtn.innerText = "STOP SYSTEM";
-            display.innerHTML = `<div>&gt; CORES ACTIVE. OPTICAL STREAM SECURED.</div>`;
+            
+            display.innerHTML = `<div>&gt; Hello, Ibrahim</div><div style="color: #00e5ff;">&gt; Who you want to spy on</div>`;
         }
     }
 
-    function tapBtn(name, colorHex) {
-        if (!isSystemOnline) return;
-        display.innerHTML = `<div>&gt; COMMAND: <span style="color: ${colorHex}">${name}</span></div><div style="color: #00e5ff;">&gt; PROTOCOL CONFIRMED.</div>`;
-    }
+    function toggleAudioOnlyMode(event) {
+        if (event && event.stopPropagation) event.stopPropagation();
+        if (isRecordingRunning) toggleRecording();
 
-    // Initialize layout setup track bounds
-    startCamera();
-</script>
+        isAudioOnlyMode = !isAudioOnlyMode;
+        const powerBtn = document.getElementById('power-toggle');
 
-</body>
-</html>
+        if (isAudioOnlyMode) {
+            isSystemOnline = true;
+            hud.classList.remove('offline');
+            mainGridButtons.forEach(btn => btn.disabled = false);
+            powerBtn.innerText = "START SYSTEM";
+            
+            reticleElem.style.display = "none";
+            waveElement.style.display = "none";
+            
+            startAudioOnly();
+            
+            audioOnlyBtn.innerText = "STOP AUDIO RECORDING";
+            audioOnlyB
