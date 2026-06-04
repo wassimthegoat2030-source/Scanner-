@@ -1,0 +1,220 @@
+* { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+
+body { 
+    margin: 0; 
+    padding: 5px; 
+    background-color: #05070a; 
+    font-family: 'Courier New', monospace; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    min-height: 100vh;
+}
+
+.hud-panel {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+    background: rgba(10, 15, 24, 0.95);
+    border: 2px solid #00e5ff;
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+}
+
+.hud-panel.offline {
+    border-color: #ff5555;
+    box-shadow: 0 0 20px rgba(255, 85, 85, 0.2);
+}
+
+.hud-panel::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+    z-index: 5;
+    background-size: 100% 4px;
+    pointer-events: none;
+}
+
+.hud-header {
+    display: flex;
+    justify-content: space-between;
+    color: #00e5ff;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.3);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+}
+
+.camera-viewport {
+    position: relative;
+    width: 100%;
+    height: 190px;
+    background: #000;
+    border: 1px solid rgba(0, 229, 255, 0.4);
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 2;
+    margin-bottom: 8px;
+}
+
+#video-feed {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1);
+    transform-origin: center center;
+    transition: transform 0.3s ease;
+    filter: url(#wireframe-mesh-engine);
+    -webkit-filter: url(#wireframe-mesh-engine);
+}
+
+/* GROUND UP PULSE WAVE */
+.ground-pulse-wave {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    bottom: -100px; 
+    height: 100px;
+    background: linear-gradient(to top, #00e5ff, rgba(0, 229, 255, 0.4) 30%, transparent 100%);
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0;
+    mix-blend-mode: screen;
+    animation: upwardPulseWave 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+@keyframes upwardPulseWave {
+    0% { bottom: -100px; opacity: 0; height: 40px; }
+    10% { opacity: 1; }
+    90% { opacity: 0.8; }
+    100% { bottom: 100%; opacity: 0; height: 180px; }
+}
+
+/* THE FUTURISTIC TARGET CUBE DESIGN (REPLACED CIRCLE) */
+.reticle-cube {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 80px;
+    height: 80px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 4;
+    overflow: hidden;
+    border: 1px solid rgba(0, 229, 255, 0.6);
+    display: none; /* Managed via JS button state toggles */
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+/* Cross-dimensional wireframe aesthetics */
+.cube-face {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: 2px solid #00e5ff;
+    box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+.face-front {
+    transform: scale(0.9);
+    border-style: dashed;
+    animation: pulseBox 2s ease-in-out infinite alternate;
+}
+
+.face-back {
+    transform: scale(1.1);
+    border-color: #00ffaa;
+    opacity: 0.5;
+}
+
+.matrix-grid-mesh {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-size: 8px 8px;
+    background-image: 
+        linear-gradient(to right, rgba(0, 229, 255, 0.25) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 229, 255, 0.25) 1px, transparent 1px);
+    z-index: 2;
+}
+
+#reticle-zoom-lens {
+    position: absolute;
+    object-fit: cover;
+    transform: scale(1.7); /* Lens magnification configuration */
+    transform-origin: center center;
+    pointer-events: none;
+    z-index: 1;
+    filter: url(#wireframe-mesh-engine);
+    -webkit-filter: url(#wireframe-mesh-engine);
+}
+
+@keyframes pulseBox {
+    0% { transform: scale(0.85); opacity: 0.7; }
+    100% { transform: scale(0.95); opacity: 1; }
+}
+
+.hud-center {
+    color: #00e5ff;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 6px;
+    border-left: 2px solid #00e5ff;
+    background: rgba(0, 229, 255, 0.02);
+    height: 52px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.controls-matrix { display: flex; flex-direction: column; gap: 6px; }
+.btn-row { display: flex; gap: 4px; width: 100%; }
+
+.hud-btn {
+    flex: 1;
+    background: rgba(0, 229, 255, 0.04);
+    border: 1px solid #00e5ff;
+    color: #00e5ff;
+    padding: 8px 2px;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.hud-btn.alt-color {
+    border-color: #00ffaa; color: #00ffaa;
+    background: rgba(0, 255, 170, 0.04);
+}
+
+.hud-btn.cyan-mode {
+    border-color: #00e5ff; color: #00e5ff;
+    background: rgba(0, 229, 255, 0.04);
+}
+
+.hud-btn.warn-color {
+    border-color: #ff5555; color: #ff5555;
+    background: rgba(255, 85, 85, 0.08);
+}
+
+.terminal-console {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+
+.prompt-symbol { color: #00e5ff; font-weight: bold; margin-right: 6px; font-size: 11px; }
+.terminal-input { flex-grow: 1; background: transparent; border: none; outline: none; color: #00e5ff; font-family: inherit; font-size: 11px; }

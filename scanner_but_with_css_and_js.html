@@ -1,0 +1,73 @@
+<div class="hud-panel" id="hud">
+    <svg style="position: absolute; width: 0; height: 0;">
+        <defs>
+            <filter id="wireframe-mesh-engine">
+                <feConvolveMatrix order="3" kernelMatrix="
+                    -1 -1 -1
+                    -1  8 -1
+                    -1 -1 -1" preserveAlpha="true"/>
+                <feComponentTransfer>
+                    <feFuncR type="linear" slope="0"/>
+                    <feFuncG type="linear" slope="3.5"/>
+                    <feFuncB type="linear" slope="4.0"/>
+                </feComponentTransfer>
+                <feBlend mode="screen" in2="SourceGraphic"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <div class="hud-header">
+        <span>SYS: ONLINE</span>
+        <span id="recording-tag" style="color: #00e5ff;">• 3D HYBRID MATRIX</span>
+    </div>
+    
+    <div class="camera-viewport" id="viewport">
+        <video id="video-feed" autoplay playsinline muted></video>
+        
+        <div class="ground-pulse-wave" id="wave-element"></div>
+        
+        <div class="reticle-cube" id="reticle-elem">
+            <video id="reticle-zoom-lens" autoplay playsinline muted></video>
+            <div class="cube-face face-front"></div>
+            <div class="cube-face face-back"></div>
+            <div class="matrix-grid-mesh"></div>
+        </div>
+    </div>
+    
+    <div class="hud-center" id="display">
+        <div>&gt; CORES ACTIVE. OPTICAL STREAM SECURED.</div>
+        <div style="color: #00e5ff;">&gt; RECORDING ENGINE INTEGRATED. PRESS 'REC' TO SAVE Capture.</div>
+    </div>
+
+    <div class="controls-matrix">
+        <div class="btn-row">
+            <button class="hud-btn main-grid" onclick="tapBtn('F1', '#00e5ff')">F1</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('F2', '#00e5ff')">F2</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('F3', '#00e5ff')">F3</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('F4', '#00e5ff')">F4</button>
+        </div>
+        
+        <div class="btn-row">
+            <button class="hud-btn cyan-mode main-grid" id="zoom-btn" onclick="triggerZoom()">ZOOM 1X</button>
+            <button class="hud-btn cyan-mode main-grid" id="circle-zoom-btn" onclick="toggleCircleZoom()">ZOOM BOX: OFF</button>
+            <button class="hud-btn alt-color main-grid" onclick="tapBtn('AUDIO LINK', '#00ffaa')">AUDIO</button>
+            <button class="hud-btn alt-color main-grid" onclick="tapBtn('SCAN RAY', '#00ffaa')">SCAN</button>
+        </div>
+
+        <div class="btn-row">
+            <button class="hud-btn main-grid" id="rec-btn" style="border-color: #ff5555; color: #ff5555;" onclick="toggleRecording()">REC</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('DATA CON', '#00e5ff')">LINK</button>
+            <button class="hud-btn main-grid" onclick="tapBtn('SYS SYNC', '#00e5ff')">SYNC</button>
+            <button class="hud-btn" style="border-color:#ffffff; color:#ffffff;" onclick="location.reload()">RESET</button>
+        </div>
+        
+        <div class="btn-row">
+            <button class="hud-btn warn-color" id="power-toggle" onclick="togglePower(event)">STOP SYSTEM</button>
+        </div>
+    </div>
+
+    <div class="terminal-console">
+        <span class="prompt-symbol">&gt;</span>
+        <input type="text" class="terminal-input" placeholder="Type command..." autocomplete="off">
+    </div>
+</div>
